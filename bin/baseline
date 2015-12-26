@@ -13,12 +13,15 @@ verbose = switches.delete('v')
 very_verbose = switches.delete('V')
 continuous = switches.delete('c')
 verbose ||= very_verbose
-failed = updated = matched = 0
+failed = updated = matched = skipped = 0
 
 abort "Unrecognized switch: #{switches.first}" unless switches.empty?
 
 scenarios = opts.reject { |x| x[0] == '-' }
-scenarios = Dir.glob('../regress/*.rb') if scenarios.empty?
+if scenarios.empty?
+  regress_dir = File.expand_path(File.join(script, '../..', 'regress/*.rb'))
+  scenarios = Dir.glob(regress_dir)
+end
 scenarios.map! do |s|
   s = File.absolute_path(s)
   abort "Not an executable: #{s}" unless File.file?(s) and File.executable?(s)
@@ -31,6 +34,7 @@ scenarios.sort.each do |s|
   print (name + ':' + ' ' * 50)[0, 50]
   unless baseline or File.file?(b)
     puts '[ BASELINE MISSING ]'
+    skipped += 1
     next
   end
 
@@ -77,3 +81,11 @@ scenarios.sort.each do |s|
 end
 
 exec(script, *ARGV) if continuous
+
+if baseline
+  puts "#{updated} Updated, #{matched} Up-to-date, #{failed} Failed"
+else
+  puts "#{matched} Passed, #{failed} Failed, #{skipped} Skipped"
+end
+
+exit(failed)

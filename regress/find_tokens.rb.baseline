@@ -1,0 +1,7 @@
+{"word"=>"this"}
+{"word"=>"is"}
+{"word"=>"a"}
+{"word"=>"foo"}
+{"href"=>"foo.com", "name"=>"Foo!"}
+{"href"=>"fizz.buzz", "name"=>"Fizz!"}
+{"href"=>"bizz.bang", "name"=>"Bizz"}
