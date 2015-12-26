@@ -1,15 +1,6 @@
 #!/usr/bin/env ruby
 
-text = <<-HERE
-  <a href="foo.com">Foo!</a>
-  <a href='fizz.buzz'>
-    Fizz!
-  </a><a href=bizz.bang
-  >Bizz</a>
-HERE
-
-file = '/tmp/mm_scrape_test.txt'
-File.delete(file) if File.exist?(file)
-File.write(file, text)
-
-puts `../bin/scrape.rb #{file} "<a\\s+[^>]*href=['\\"]?(?<href>[^'\\"\\s]+)['\\"]?[^>]*>\\s*(?<name>[^<]*?)\\s*<\\/a>"`
+file = File.expand_path(File.join(__FILE__, '../mm_scrape_test.txt'))
+regex = '<a\\s+[^>]*href=[\'\\"]?(?<href>[^\'\\"\\s]+)[\'\\"]?[^>]*>\\s*(?<name>[^<]*?)\\s*<\\/a>'
+bin = File.expand_path(File.join(__FILE__, '../../bin/scrape.rb'))
+puts `#{bin} #{file} "#{regex}"`
