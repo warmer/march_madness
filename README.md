@@ -51,9 +51,9 @@ curl `http://example.com/teams > teams.html`
 
 ### Get the game IDs from each of the teams' schedules
 
-`ls schedules_*.html | while read line; do id=$(echo $line | grep -P '\d+'); ../bin/scrape.rb $line "<a\s+[^>]*href=['\"]/ncb/recap\?gameId=(?<game_id>\d+)" > game_list_$id.tsv; done`
+`ls schedules_*.html | while read line; do id=$(echo $line | grep -oP '\d+'); ../bin/scrape.rb $line "<a\s+[^>]*href=['\"]/ncb/recap\?gameId=(?<game_id>\d+)" > game_list_$id.tsv; done`
 
 ### Download all of the boxscores and play-by-play pages
 
-`cat game_list_*.tsv | sort | uniq | while read line; do curl "http://example.com/boxscore?gameId=$line" > boxscore_$line.html; sleep 60; do curl "http://example.com/playbyplay?gameId=400818724" > playbyplay_$line.html; sleep 60; done`
+`cat game_list_*.tsv | sort | uniq | while read line; do curl "http://example.com/boxscore?gameId=$line" > boxscore_$line.html; sleep 60; curl "http://example.com/playbyplay?gameId=$line" > playbyplay_$line.html; sleep 60; done`
 
