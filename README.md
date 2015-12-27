@@ -57,3 +57,6 @@ curl `http://example.com/teams > teams.html`
 
 `cat game_list_*.tsv | sort | uniq | while read line; do curl "http://example.com/boxscore?gameId=$line" > boxscore_$line.html; sleep 60; curl "http://example.com/playbyplay?gameId=$line" > playbyplay_$line.html; sleep 60; done`
 
+Note: to skip files that have already been downloaded, use the following:
+
+`cat game_list_*.tsv | sort | uniq | while read line; do if [ ! -f boxscore_$line.html ]; then curl "http://example.com/boxscore?gameId=$line" > boxscore_$line.html; sleep 30; fi; if [ ! -f playbyplay_$line.html ]; then curl "http://example.com/playbyplay?gameId=$line" > playbyplay_$line.html; sleep 30; fi; done`
