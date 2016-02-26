@@ -12,13 +12,13 @@ do
   boxscore_parsed=../data/boxscore_$line.tsv
   playbyplay_parsed=../data/playbyplay_$line.tsv
 
-  if [ ! -f $boxscore ]
+  if [ ! -f $boxscore ] && [ "$1" != "--nodl" ]
   then
     curl -s -S "http://espn.go.com/mens-college-basketball/boxscore?gameId=$line" > $boxscore
     echo "Downloaded $boxscore"
     sleep 30
   fi
-  if [ ! -f $playbyplay ]
+  if [ ! -f $playbyplay ] && [ "$1" != "--nodl" ]
   then
     curl -s -S "http://espn.go.com/mens-college-basketball/playbyplay?gameId=$line" > $playbyplay
     echo "Downloaded $playbyplay"
