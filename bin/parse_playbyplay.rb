@@ -14,36 +14,34 @@ header = lines.shift
 team_a_score = 0
 team_b_score = 0
 
-events = [
-  /missed Jumper/,
-  /missed Layup/,
-  /missed Dunk/,
-  /missed Three Point Jumper/,
-  /missed Free Throw/,
-  /missed Two Point Tip Shot/,
+events = {
+  missed_jumper: {regex: /missed (Jumper|Two Point Tip Shot)/},
+  missed_layup: {regex: /missed Layup/},
+  missed_dunk: {regex: /missed Dunk/},
+  missed_3pt: {regex: /missed Three Point Jumper/},
+  missed_ft: {regex: /missed Free Throw/},
 
-  /made Jumper/,
-  /made Layup/,
-  /made Dunk/,
-  /made Three Point Jumper/,
-  /made Free Throw/,
-  /made Two Point Tip Shot/,
+  made_jumper: {regex: /made (Jumper|Two Point Tip Shot)/},
+  made_layup: {regex: /made Layup/},
+  made_dunk: {regex: /made Dunk/},
+  made_3pt: {regex: /made Three Point Jumper/},
+  made_ft: {regex: /made Free Throw/},
 
-  /Turnover/,
-  /Steal/,
-  /Block/,
+  turnover: {regex: /Turnover/},
+  steal: {regex: /Steal/},
+  block: {regex: /Block/},
 
-  /^Foul on/,
-  /Technical Foul on/,
-  /^Intentional Foul on/,
-  /Flagrant/i,
-  /Ejected/i,
+  foul: {regex: /^Foul on/},
+  technical_foul: {regex: /Technical Foul on/},
+  intentional_foul: {regex: /^Intentional Foul on/},
+  flagrant: {regex: /Flagrant/i},
+  ejected: {regex: /Ejected/i},
 
-  /Team Rebound/,
-  /Offensive Rebound/,
-  /Defensive Rebound/,
-  /(Jump Ball|alternating possession)/i,
-]
+  deadball_rebound: {regex: /Deadball Team Rebound/, skip: true},
+  off_rebound: {regex: /Offensive Rebound/},
+  def_rebound: {regex: /Defensive Rebound/},
+  jump_ball: {regex: /(Jump Ball|alternating possession)/i},
+}
 
 combos = [
   [2, 18],
@@ -69,8 +67,8 @@ lines.each do |line|
   action = team_a_action.empty? ? team_b_action : team_a_action
 
   state_number = nil
-  events.each_with_index do |reg, idx|
-    if reg =~ action
+  events.keys.each_with_index do |event, idx|
+    if events[event][:regex] =~ action
       state_number = idx
       break
     end
@@ -84,4 +82,9 @@ lines.each do |line|
   current_state = state_number
 end
 
-puts transitions
+transitions.each_with_index do |txns, idx|
+  tx_map = {}
+  txns.each {|k, num| tx_map[events.keys[k]] = num}
+  puts "#{events.keys[idx]}: #{tx_map}"
+end
+puts '=' * 60
