@@ -1,18 +1,12 @@
 #!/usr/bin/env ruby
 
 file = ARGV[0]
-
 raise 'Source file name not given' unless file
 
-contents = File.read(file).force_encoding('ASCII-8bit')
-lines = contents.split("\n")
-
+lines = File.read(file).force_encoding('ASCII-8bit').split("\n")
 exit 0 if lines.count <= 1
 
 header = lines.shift
-
-team_a_score = 0
-team_b_score = 0
 
 events = {
   missed_jumper: {
@@ -45,22 +39,6 @@ events = {
     posession: true},
 }
 
-posession_edges = [
-  [:foul, :missed_ft],
-  [:foul, :made_ft],
-  [:made_jumper],
-  [:made_layup],
-  [:made_dunk],
-  [:made_3pt],
-  [:made_ft, [:not, :made_ft, :missed_ft]],
-  [:block, :def_rebound],
-  [:foul, [:with, :posession]],
-  [:foul, [:with, :posession]],
-  [:foul, [:with, :posession]],
-  [:foul, [:with, :posession]],
-  [:missed_jumper, :def_rebound],
-]
-
 # key: event_name, value: hash [key: txn, value: count]
 transitions = Hash.new{|h,k| h[k] = Hash.new{|ha,ka| ha[ka] = 0}}
 
@@ -71,6 +49,7 @@ lines.each do |line|
   score, a_action, b_action, time = line.split("\t")
   a_score, b_score = score.split('-').map{|t| t.to_i}
   minutes, seconds = time.split(':').map{|t| t.to_i}
+  seconds_left = minutes * 60 + seconds
   event_name = event = posessor = nil
 
   raise 'No actions' if a_action.empty? and b_action.empty?
@@ -88,8 +67,17 @@ lines.each do |line|
 
   # has posession changed?
   if posessor and posessor != last_posessor
-    posessions << current_posession if current_posession
-    current_posession = {team: actor, events: [], points: 0}
+    if current_posession
+      current_posession[:time] = current_posession[:left] - seconds_left
+      posessions << current_posession if current_posession
+    end
+    current_posession = {
+      team: actor,
+      events: [],
+      team_score: actor == :team_a ? a_score : b_score,
+      opp_score: actor == :team_a ? b_score : a_score,
+      left: seconds_left,
+      points: 0}
     last_posessor = posessor
   end
 
@@ -103,6 +91,8 @@ lines.each do |line|
   transitions[last_event_name][event_name] += 1 if last_event_name
   last_event_name = event_name
 end
+
+current_posession[:time] = current_posession[:left]
 posessions << current_posession
 
 #transitions.each {|event, trans_map| puts "#{event}: #{trans_map}"}
