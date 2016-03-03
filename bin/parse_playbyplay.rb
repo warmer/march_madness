@@ -15,76 +15,97 @@ team_a_score = 0
 team_b_score = 0
 
 events = {
-  missed_jumper: {regex: /missed (Jumper|Two Point Tip Shot)/},
-  missed_layup: {regex: /missed Layup/},
-  missed_dunk: {regex: /missed Dunk/},
-  missed_3pt: {regex: /missed Three Point Jumper/},
-  missed_ft: {regex: /missed Free Throw/},
+  missed_jumper: {
+    regex: /missed (Jumper|Two Point Tip Shot)/,
+    posession: true},
+  missed_layup: {regex: /missed Layup/, posession: true},
+  missed_dunk: {regex: /missed Dunk/, posession: true},
+  missed_3pt: {regex: /missed Three Point Jumper/, posession: true},
+  missed_ft: {regex: /missed Free Throw/, posession: true},
 
-  made_jumper: {regex: /made (Jumper|Two Point Tip Shot)/},
-  made_layup: {regex: /made Layup/},
-  made_dunk: {regex: /made Dunk/},
-  made_3pt: {regex: /made Three Point Jumper/},
-  made_ft: {regex: /made Free Throw/},
+  made_jumper: {regex: /made (Jumper|Two Point Tip Shot)/,
+    posession: true, points: 2},
+  made_layup: {regex: /made Layup/, posession: true, points: 2},
+  made_dunk: {regex: /made Dunk/, posession: true, points: 2},
+  made_3pt: {regex: /made Three Point Jumper/, posession: true,
+    points: 3},
+  made_ft: {regex: /made Free Throw/, posession: true, points: 1},
 
-  turnover: {regex: /Turnover/},
-  steal: {regex: /Steal/},
-  block: {regex: /Block/},
+  turnover: {regex: /Turnover/, posession: true},
+  steal: {regex: /Steal/, posession: true, follows: :turnover},
+  block: {regex: /Block/, posession: false},
 
-  foul: {regex: /^Foul on/},
-  technical_foul: {regex: /Technical Foul on/},
-  intentional_foul: {regex: /^Intentional Foul on/},
-  flagrant: {regex: /Flagrant/i},
-  ejected: {regex: /Ejected/i},
+  foul: {regex: /Foul on/i},
+  ejected: {regex: /Ejected/i, skip: true},
 
   deadball_rebound: {regex: /Deadball Team Rebound/, skip: true},
-  off_rebound: {regex: /Offensive Rebound/},
-  def_rebound: {regex: /Defensive Rebound/},
-  jump_ball: {regex: /(Jump Ball|alternating possession)/i},
+  off_rebound: {regex: /Offensive Rebound/, posession: true},
+  def_rebound: {regex: /Defensive Rebound/, posession: true},
+  jump_ball: {regex: /(Jump Ball|alternating possession)/i,
+    posession: true},
 }
 
-combos = [
-  [2, 18],
-  [3, 18],
-  [4, 18],
-  [5, 18],
+posession_edges = [
+  [:foul, :missed_ft],
+  [:foul, :made_ft],
+  [:made_jumper],
+  [:made_layup],
+  [:made_dunk],
+  [:made_3pt],
+  [:made_ft, [:not, :made_ft, :missed_ft]],
+  [:block, :def_rebound],
+  [:foul, [:with, :posession]],
+  [:foul, [:with, :posession]],
+  [:foul, [:with, :posession]],
+  [:foul, [:with, :posession]],
+  [:missed_jumper, :def_rebound],
 ]
 
-current_state = nil
-transitions = (0...(events.size)).to_a.map{|i| Hash.new{|h,k| h[k] = 0} }
+# key: event_name, value: hash [key: txn, value: count]
+transitions = Hash.new{|h,k| h[k] = Hash.new{|ha,ka| ha[ka] = 0}}
+
+last_event_name = last_posessor = current_posession = nil
+posessions = []
 
 lines.each do |line|
-  score, team_a_action, team_b_action, time = line.split("\t")
-  a_score, b_score = score.split("-").map{|t| t.to_i}
-  minutes, seconds = time.split(":").map{|t| t.to_i}
+  score, a_action, b_action, time = line.split("\t")
+  a_score, b_score = score.split('-').map{|t| t.to_i}
+  minutes, seconds = time.split(':').map{|t| t.to_i}
+  event_name = event = posessor = nil
 
-  if team_a_action.empty? and team_b_action.empty?
-    raise "Neither team had actions."
-  elsif not team_a_action.empty? and not team_b_action.empty?
-    raise "Both teams had actions: #{team_a_action}, #{team_b_action}"
+  raise 'No actions' if a_action.empty? and b_action.empty?
+  raise 'Two actions' if not a_action.empty? and not b_action.empty?
+
+  action = a_action.empty? ? b_action : a_action
+  actor = a_action.empty? ? :team_b : :team_a
+
+  # find our defined action
+  event_name, event = events.find {|name, event| event[:regex] =~ action}
+  raise "No event found for #{action}" unless event_name
+  next if event[:skip]
+
+  posessor = actor if event[:posession]
+
+  # has posession changed?
+  if posessor and posessor != last_posessor
+    posessions << current_posession if current_posession
+    current_posession = {team: actor, events: [], points: 0}
+    last_posessor = posessor
   end
 
-  action = team_a_action.empty? ? team_b_action : team_a_action
-
-  state_number = nil
-  events.keys.each_with_index do |event, idx|
-    if events[event][:regex] =~ action
-      state_number = idx
-      break
-    end
+  # we'll almost always have a current posession, but sometimes
+  # we don't know until a few plays have happened
+  if current_posession
+    current_posession[:events] << event_name
+    current_posession[:points] += event[:points] if event[:points]
   end
 
-  raise "No event found for #{action}" unless state_number
-
-  if current_state
-    transitions[current_state][state_number] += 1
-  end
-  current_state = state_number
+  transitions[last_event_name][event_name] += 1 if last_event_name
+  last_event_name = event_name
 end
+posessions << current_posession
 
-transitions.each_with_index do |txns, idx|
-  tx_map = {}
-  txns.each {|k, num| tx_map[events.keys[k]] = num}
-  puts "#{events.keys[idx]}: #{tx_map}"
-end
+#transitions.each {|event, trans_map| puts "#{event}: #{trans_map}"}
+puts posessions
+
 puts '=' * 60
