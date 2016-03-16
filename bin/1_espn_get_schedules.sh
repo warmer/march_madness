@@ -10,7 +10,7 @@ do
   then
     echo "Download the schedules for team ID $team_id"
     curl -s -S "http://espn.go.com/mens-college-basketball/team/schedule/_/id/$team_id" > $schedule
-    sleep 30
+    sleep 10
   fi
 
   echo "Scrape the game IDs from team ID $team_id's schedule"
