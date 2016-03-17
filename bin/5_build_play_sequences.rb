@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'yaml'
+require_relative '../lib/common.rb'
 
 file = ARGV[0]
 raise 'Source file name not given' unless file
@@ -88,50 +89,6 @@ events = {
 
 last_event_name = last_posessor = current_posession = nil
 posessions = []
-
-# NOTE: second and overtime periods behave the same for now
-TIME_STATES = [
-  {name: :opening,        time_left: 2400 - 300},
-  {name: :first_meat,     time_left: 2400 - 900},
-  {name: :first_end,      time_left: 1200},
-  {name: :opening2,       time_left: 1200 - 300},
-  {name: :second_meat,    time_left: 300},
-  {name: :second_end,     time_left: 180},
-  {name: :second_crunch,  time_left: 0},
-]
-DIFF_STATES = [
-  {name: :big_trouble,    diff: -20}, # more than 20 pts behind
-  {name: :trouble,        diff: -10}, # 11-20 points behind
-  {name: :small_trouble,  diff: -4},  # 5-10 points behind
-  {name: :tiny_down,      diff: 0},   # 1-4 points behind
-  {name: :tied,           diff: 1},   # tied
-  {name: :tiny_up,        diff: 5},   # 1-4 ahead
-  {name: :small_lead,     diff: 11},  # 5-10 points ahead
-  {name: :lead,           diff: 21},  # 11-20 points ahead
-  {name: :big_lead,       diff: 999}, # more than 20 points ahead
-]
-
-def time_state(seconds_left)
-  state = TIME_STATES[0]
-  TIME_STATES.each do |s|
-    if s[:time_left].to_i <= seconds_left.to_i
-      state = s
-      break
-    end
-  end
-  state[:name]
-end
-
-def diff_state(diff)
-  state = nil
-  DIFF_STATES.each do |s|
-    if s[:diff] > diff
-      state = s
-      break
-    end
-  end
-  state[:name]
-end
 
 first_half = true
 score_home = score_away = score_home = score_away = 00
