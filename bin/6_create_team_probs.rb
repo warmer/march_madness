@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'yaml'
+require_relative '../lib/common.rb'
 
 team_glob = ARGV[0] || '*'
 
@@ -12,7 +13,10 @@ team_paths.each do |team_path|
 
   puts team
   action_files = Dir.glob(File.join(team_path, 'actions-*.yml'))
-  raise "No actions found for team #{team}" unless action_files.length > 0
+  unless action_files.length > 0
+    puts "No actions found for team #{team}"
+    next
+  end
 
   # transitions[in state][result] = number_of_times
   transitions = Hash.new{|h,k| h[k] = Hash.new{|ha,ka| ha[ka] = 0}}
@@ -21,7 +25,10 @@ team_paths.each do |team_path|
   action_files.each do |f|
     content = YAML::load(File.read(f).force_encoding('ASCII-8bit'))
     content.each do |seq|
-      state = seq[:states].sort.join('-')
+      # don't rely on the states as they were recorded, find them again
+      ts = time_state(seq[:left])
+      ds = diff_state(seq[:team_score] - seq[:opp_score])
+      state = [ts, ds].sort.join('-')
       result = seq[:points]
       transitions[state][result] += 1
       posessions += 1

@@ -5,10 +5,17 @@ set -e
 #valid_playbyplays=../data/valid_playbyplays.tsv
 #invalid_playbyplays=../data/invalid_playbyplays.tsv
 
-cat ../data/game_list_*.tsv | sort | uniq | while read line
+team_id='*'
+if [ "$1" != "--nodl" ] && [ "$1" != "" ]
+then
+  team_id=$1
+fi
+
+cat ../scraped/$team_id/game_list.tsv | sort | uniq | while read line
 do
   boxscore=../data/boxscore_$line.html
   playbyplay=../data/playbyplay_$line.html
+  rm $playbyplay
 #  boxscore_parsed=../data/boxscore_$line.tsv
 #  playbyplay_parsed=../data/playbyplay_$line.tsv
 

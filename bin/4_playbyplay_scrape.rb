@@ -4,26 +4,6 @@ require 'yaml'
 require 'json'
 require 'fileutils'
 
-files = ARGV[0] || 'playbyplay_*.html'
-
-debug = false
-
-DATA_DIR = File.expand_path(File.join(__FILE__, '../../data/'))
-SCRAPED_DIR = File.join(File.dirname(DATA_DIR), 'scraped/')
-raw_files = Dir.glob(File.join(DATA_DIR, files))
-
-r1="<tr class=\"(?:even|odd)\"><td[^>]*>(?<time>[^<]*)</td>"
-r1 += "<td[^>]*>(?:<b>|<B>)?(?:&nbsp;)?(?<team_a_action>[^<]*)(?:</b>|</B>)?</td>"
-r1 += "<td[^>]*>(?<score>[^<]*)</td>"
-r1 += "<td[^>]*>(?:<b>|<B>)?(?:&nbsp;)?(?<team_b_action>[^<]*)(?:</b>|</B>)?</td></tr>"
-
-r2='<tr><td class="time-stamp">(?<time>[^>]*)</td><td[^>]*><img\s+class="[^"]*"\s+src="[^"]*/(?<team_id>\d+).png[^"]*"/></td><td[^>]*>(?<action>[^>]*)</td>(?:<!--(?:false|true)-->)?<td[^>]*>(?<score_away>\d+)\s*-\s*(?<score_home>\d+)</td><td[^>]*>[^<]*</td></tr>'
-
-regex1 = Regexp.new(r1)
-regex2 = Regexp.new(r2)
-team_regex1 = Regexp.new('<h3><a href="http://espn.go.com/mens-college-basketball/team/_/id/(?<team_id>\d+)[^"]*">(?<team_name>[^<]*)</a>\s* <span>(?<team_score>\d*)</span></h3>')
-team_regex2 = Regexp.new('<div class="team-info">(:?<span[^>]*>[^<]*</span>)?<a[ ]*(:?[a-zA-Z0-9_-]*[ ]*=[ ]*[^ ]*[ ]*)*href="/mens-college-basketball/team/_/id/(?<team_id>[0-9]+)"><span[^>]*>(?<team_name>[^<]*)')
-
 def get_tokens(regex, content)
   res = []
   content.scan(regex) { res << $~ }
@@ -69,36 +49,85 @@ def convert_pbp(home, away, pbp)
   c
 end
 
-def save_stats(team_info, pbp, game_id)
-  away = team_info[0]
-  home = team_info[1]
-  puts "# #{game_id} home: #{home['team_name']} [#{home['team_id']}], away: #{away['team_name']} [#{away['team_id']}]"
-  stats = {
-    home_team: home,
-    away_team: away,
-    game_id: game_id,
-    play_by_play: convert_pbp(home, away, pbp),
-  }
-  statstr = stats.to_yaml
-  home_path = File.join(SCRAPED_DIR, home['team_id'], "#{game_id}-vs-#{away['team_id']}.yml")
-  away_path = File.join(SCRAPED_DIR, away['team_id'], "#{game_id}-at-#{home['team_id']}.yml")
-
-  if not File.exist?(home_path)
-    FileUtils.mkdir_p(File.dirname(home_path))
-    File.write(home_path, statstr)
-  end
-
-  if not File.exist?(away_path)
-    FileUtils.mkdir_p(File.dirname(away_path))
-    File.write(away_path, statstr)
+def stat_path_for(team_id, game_id, is_home, opp_id)
+  if is_home
+    File.join(SCRAPED_DIR, team_id, "#{game_id}-vs-#{opp_id}.yml")
+  else
+    File.join(SCRAPED_DIR, team_id, "#{game_id}-at-#{opp_id}.yml")
   end
 end
 
+def save_stats(team_info, pbp, game_id)
+  away = team_info[0]
+  home = team_info[1]
+  statstr = nil
+  home_path = stat_path_for(home['team_id'], game_id, true, away['team_id'])
+  away_path = stat_path_for(away['team_id'], game_id, false, home['team_id'])
+
+  if not File.exist?(home_path)
+    stats = {
+      home_team: home,
+      away_team: away,
+      game_id: game_id,
+      play_by_play: convert_pbp(home, away, pbp),
+    }
+
+    statstr ||= stats.to_yaml
+    FileUtils.mkdir_p(File.dirname(home_path))
+    File.write(home_path, statstr)
+    puts "# Wrote #{game_id} home: #{home['team_name']} [#{home['team_id']}], away: #{away['team_name']} [#{away['team_id']}]"
+  end
+
+  if not File.exist?(away_path)
+    stats ||= {
+      home_team: home,
+      away_team: away,
+      game_id: game_id,
+      play_by_play: convert_pbp(home, away, pbp),
+    }
+
+    statstr ||= stats.to_yaml
+    FileUtils.mkdir_p(File.dirname(away_path))
+    File.write(away_path, statstr)
+    puts "# Wrote #{game_id} away: #{away['team_name']} [#{away['team_id']}], home: #{home['team_name']} [#{home['team_id']}]"
+  end
+end
+
+DATA_DIR = File.expand_path(File.join(__FILE__, '../../data/'))
+SCRAPED_DIR = File.join(File.dirname(DATA_DIR), 'scraped/')
+
+files = ARGV[0] || 'playbyplay_*.html'
+raw_files = Dir.glob(File.join(DATA_DIR, files))
+# was the argument a numeric value? if so, it was a specific team
+if ARGV[0].to_i.to_s == ARGV[0] and ARGV[0].to_i > 0
+  puts "=" * 40
+  puts "Parsing games for team #{ARGV[0]}"
+  game_file = File.read(File.join(SCRAPED_DIR, ARGV[0], 'game_list.tsv'))
+  game_ids = game_file.split("\n")
+  raw_files = game_ids.map{|f| File.join(DATA_DIR, "playbyplay_#{f}.html")}
+end
+
+debug = false
+
+r1="<tr class=\"(?:even|odd)\"><td[^>]*>(?<time>[^<]*)</td>"
+r1 += "<td[^>]*>(?:<b>|<B>)?(?:&nbsp;)?(?<team_a_action>[^<]*)(?:</b>|</B>)?</td>"
+r1 += "<td[^>]*>(?<score>[^<]*)</td>"
+r1 += "<td[^>]*>(?:<b>|<B>)?(?:&nbsp;)?(?<team_b_action>[^<]*)(?:</b>|</B>)?</td></tr>"
+
+r2='<tr><td class="time-stamp">(?<time>[^>]*)</td><td[^>]*><img\s+class="[^"]*"\s+src="[^"]*/(?<team_id>\d+).png[^"]*"/></td><td[^>]*>(?<action>[^>]*)</td>(?:<!--(?:false|true)-->)?<td[^>]*>(?<score_away>\d+)\s*-\s*(?<score_home>\d+)</td><td[^>]*>[^<]*</td></tr>'
+
+regex1 = Regexp.new(r1)
+regex2 = Regexp.new(r2)
+team_regex1 = Regexp.new('<h3><a href="http://espn.go.com/mens-college-basketball/team/_/id/(?<team_id>\d+)[^"]*">(?<team_name>[^<]*)</a>\s* <span>(?<team_score>\d*)</span></h3>')
+team_regex2 = Regexp.new('<div class="team-info">(:?<span[^>]*>[^<]*</span>)?<a[ ]*(:?[a-zA-Z0-9_-]*[ ]*=[ ]*[^ ]*[ ]*)*href="/mens-college-basketball/team/_/id/(?<team_id>[0-9]+)"><span[^>]*>(?<team_name>[^<]*)')
+
+
 valid = invalid_info = invalid_pbp = 0
 raw_files.each do |filename|
-  content = File.read(filename).force_encoding('ASCII-8bit')
-  unless content.length > 0
-    #File.delete(filename)
+  content = File.read(filename).force_encoding('ASCII-8bit') rescue nil
+  next unless content
+  unless content.length > 100
+    File.delete(filename)
     puts "Deleting #{filename} (no content)"
   end
 

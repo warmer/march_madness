@@ -78,6 +78,8 @@ class TeamBattle
   end
 
   def state_for(stats, ds, ts)
+    ds_orig = ds
+    ts_orig = ts
     state = nil
     loop do
       state = [ts, ds].sort.join('-')
@@ -92,7 +94,7 @@ class TeamBattle
       end
       if idx == DIFF_STATES.count / 2
         rando_state = stats.keys.select{|k| k =~ /#{ts}/}.sample
-        puts "FUDGING DIFF STATE to #{rando_state} - not enough data!"
+        debug "FUDGING DIFF STATE to #{rando_state} - not enough data for #{ds_orig}/#{ts_orig}!"
         return rando_state
       end
       idx += 1 if idx < DIFF_STATES.count / 2
